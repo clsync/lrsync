@@ -77,6 +77,7 @@ void push_rsyncarg(ctx_t *const ctx_p, char *const arg, int isoption) {
 		errno = E2BIG;
 		critical("Too many arguments");
 	}
+//	printf("r: \"%s\" %u\n", arg, isoption);
 
 	if (!isoption) {
 		switch (nonoption_count) {
@@ -103,6 +104,7 @@ void push_clsyncarg(ctx_t *const ctx_p, char *const arg) {
 		errno = E2BIG;
 		critical("Too many arguments");
 	}
+	printf("c: \"%s\"\n", arg);
 
 	ctx_p->clsync_argv[ ctx_p->clsync_argv_count++ ] = arg;
 
@@ -142,6 +144,7 @@ int parse_arguments(const int argc, char *const argv[], ctx_t *const ctx_p)
 		// This argument is just an argument to previously pushed clsync option
 		if (reqarg) {
 			push_clsyncarg(ctx_p, arg);
+			reqarg = 0;
 			continue;
 		}
 
