@@ -41,7 +41,7 @@ void _syntax(ctx_t *const ctx_p)
 	info_short("lrsync possible options:");
 	info_short("	--help");
 	info_short("	--version");
-	info_short("	--command");
+	info_short("	--clsync-command-only");
 	info_short("");
 	info_short("");
 	info_short("\"rsync  --help\":");
@@ -200,8 +200,8 @@ int parse_arguments(const int argc, char *const argv[], ctx_t *const ctx_p)
 				syntax();
 			if (!strcmp(longopt, "version"))
 				version();
-			if (!strcmp(longopt, "command")) {
-				ctx_p->flags[FL_COMMANDONLY]=1;
+			if (!strcmp(longopt, "clsync-command-only")) {
+				ctx_p->flags[FL_CLSYNCCOMMANDONLY]=1;
 				continue;
 			}
 

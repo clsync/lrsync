@@ -61,7 +61,8 @@
 #define FLM_LONGOPTONLY (1<<8)
 
 enum flag {
-	FL_COMMANDONLY = 0,
+	FL_CLSYNCCOMMANDONLY = 0,
+	FL_RSYNCCOMMANDS     = 1,
 
 	FL_MAX
 

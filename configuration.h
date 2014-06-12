@@ -7,4 +7,5 @@
 
 #define DEFAULT_CLSYNC_PATH	"clsync"
 #define DEFAULT_RSYNC_PATH	"rsync"
+#define DEFAULT_LISTSDIR_PATH	"/tmp/.lrsync"
 

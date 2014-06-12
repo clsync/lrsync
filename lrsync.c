@@ -93,6 +93,15 @@ const char *path_clsync() {
 	return clsync_path;
 }
 
+const char *path_listsdir() {
+	char *listsdir_path;
+	listsdir_path = getenv("CLSYNC_LISTS_PATH");
+	if (listsdir_path == NULL)
+		listsdir_path = DEFAULT_LISTSDIR_PATH;
+
+	return listsdir_path;
+}
+
 static inline int exec_rsync_argv(const char **argv)
 {
 	return forkexecwaitvp(path_rsync(), argv);
@@ -168,12 +177,15 @@ int lrsync(ctx_t *const ctx_p)
 	push_arg(argv, &count, ctx_p->dir_from);
 	push_arg(argv, &count, "-D");
 	push_arg(argv, &count, ctx_p->dir_to);
+	push_arg(argv, &count, "-L");
+	push_arg(argv, &count, path_listsdir());
 
 	argv_p = ctx_p->clsync_argv;
 	while (*argv_p != NULL)
 		push_arg(argv, &count, *(argv_p++));
 
 	push_arg(argv, &count, "--");
+	push_arg(argv, &count, "%RSYNC-ARGS%");
 
 	argv_p = ctx_p->rsync_argv;
 	while (*argv_p != NULL)
