@@ -104,7 +104,7 @@ void push_clsyncarg(ctx_t *const ctx_p, char *const arg) {
 		errno = E2BIG;
 		critical("Too many arguments");
 	}
-	printf("c: \"%s\"\n", arg);
+//	printf("c: \"%s\"\n", arg);
 
 	ctx_p->clsync_argv[ ctx_p->clsync_argv_count++ ] = arg;
 
