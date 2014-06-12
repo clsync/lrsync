@@ -1,0 +1,111 @@
+.\" Sorry for my English 
+.\" --Dmitry Yu Okunev <dyokunev@ut.mephi.ru> 0x8E30679C
+.\"
+.TH CLSYNC 1 "JUNE 2014" Linux "User Manuals"
+.SH NAME
+lrsync \- rsync\-like clsync\-wrapper for live syncing
+.SH SYNOPSIS
+.B lrsync [ lrsync, clsync and rsync options ]
+.SH DESCRIPTION
+.B lrsync
+executes
+.BR clsync "(1)"
+with appropriate arguments.
+
+.B lrsync
+executes "clsync \-\-help" to find out long options of clsync
+and passes such options to it. If option is not for clsync it passes
+it to rsync via
+.I sync\-handler\-arguments
+of clsync [see 
+.BR clsync "(1)]."
+
+The
+.B clsync
+is executing using the next template:
+.RS
+.I path\-to\-clsync
+\-Klrsync \-Mrsyncdirect \-S
+.I path\-to\-rsync
+\-W
+.I source\-directory
+\-D
+.I destination\-directory
+\-L
+.I lists\-dir\-path
+.I clsync\-arguments
+\-\- %RSYNC\-ARGS%
+.I rsync\-arguments
+.RE
+
+Substitutions:
+.RS
+.B path\-to\-clsync
+.RS
+Equals to ENV "CLSYNC_PATH" if it is set. Otherwise it equals to "clsync".
+.RE
+.B path\-to\-rsync
+.RS
+Equals to ENV "RSYNC_PATH" if it is set. Otherwise it equals to "rsync".
+.RE
+.B source\-directory
+.RS
+The first non\-option lrsync argument.
+.RE
+.B destination\-directory
+.RS
+The second non\-option lrsync argument.
+.RE
+.B lists\-dir\-path
+.RS
+Equals to ENV "CLSYNC_LISTS_PATH" if it is set. Otherwise it equals to
+"/tmp/.lrsync".
+.RE
+.B clsync\-arguments
+.RS
+Equals to parsed clsync long options from the lrsync arguments.
+.RE
+.B rsync\-arguments
+.RS
+The rest part of lrsync arguments.
+.RE
+.RE
+
+.SH OPTIONS
+
+Too see
+.B rsync
+options use "man 1 rsync".
+
+Too see
+.B clsync
+options use "man 1 clsync".
+
+.B "lrsync options:"
+.RS
+.B \-\-help
+.RS
+Prints options lists of lrsync, clsync and rsync.
+.RE
+.B \-\-version
+.RS
+Prints version of lrsync, clsync and rsync.
+.RE
+.B \-\-clsync\-command\-only
+.RS
+Prints the clsync command to be runned but doesn't run it.
+.RE
+.RE
+
+.SH AUTHOR
+Dmitry Yu Okunev <dyokunev@ut.mephi.ru> 0x8E30679C
+
+.SH SUPPORT
+You can get support on official IRC-channel of clsync in Freenode "#clsync"
+or on github's issue tracking system of repository
+"https://github.com/xaionaro/lrsync".
+
+.SH SEE ALSO
+.BR clsync "(1),"
+.BR rsync "(1),"
+.BR inotify "(7)"
