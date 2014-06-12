@@ -28,6 +28,8 @@
 #include <unistd.h>	/* gid_t */
 #include <sys/types.h>	/* gid_t */
 
+#include "configuration.h"
+
 #ifndef MIN
 #define MIN(a,b) ((a)>(b)?(b):(a))
 #endif
@@ -59,8 +61,7 @@
 #define FLM_LONGOPTONLY (1<<8)
 
 enum flag {
-	FL_HELP			= 0|FLM_LONGOPTONLY,
-	FL_SHOW_VERSION		= 1|FLM_LONGOPTONLY,
+	FL_COMMANDONLY = 0,
 
 	FL_MAX
 
@@ -69,6 +70,16 @@ typedef enum flag flag_t;
 
 struct ctx {
 	flag_t flags[FL_MAX];
+
+	char  clsync_shortopt[(1<<8)];
+	char *clsync_longopt       [CLSYNC_MAXLONGOPTS+1];
+	char  clsync_longopt_reqarg[CLSYNC_MAXLONGOPTS+1];
+
+	char *rsync_argv [MAXARGUMENTS+1];
+	char *clsync_argv[MAXARGUMENTS+1];
+	int   rsync_argv_count;
+	int   clsync_argv_count;
+
 	char *dir_from;
 	char *dir_to;
 };

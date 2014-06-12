@@ -18,8 +18,8 @@
  */
 
 
-extern int lrsync(struct ctx *ctx_p, int argc, char *argv[]);
-extern int exec_rsync(struct ctx *ctx_p, ...);
-extern int exec_clsync(struct ctx *ctx_p, ...);
+extern int lrsync(struct ctx *const ctx_p);
+extern int exec_rsync(struct ctx *const ctx_p, ...);
+extern int exec_clsync(struct ctx *const ctx_p, ...);
 extern const char *path_clsync();
 

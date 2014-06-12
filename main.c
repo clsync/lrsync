@@ -35,37 +35,29 @@
 #include "popen.h"
 #include "lrsync.h"
 
-static const struct option long_options[] =
-{
-	{"help",		optional_argument,	NULL,	FL_HELP},
-	{"version",		optional_argument,	NULL,	FL_SHOW_VERSION},
-
-	{NULL,			0,			NULL,	0}
-};
-
 #define syntax() _syntax(ctx_p)
-void _syntax(ctx_t *ctx_p)
+void _syntax(ctx_t *const ctx_p)
 {
-	info("lrsync possible options:");
-
-	int i=0;
-	while(long_options[i].name != NULL) {
-		info("\t--%-24s%c%c%s", long_options[i].name, 
-			long_options[i].val & FLM_LONGOPTONLY ? ' ' : '-', 
-			long_options[i].val & FLM_LONGOPTONLY ? ' ' : long_options[i].val, 
-			(long_options[i].has_arg == required_argument ? " argument" : ""));
-		i++;
-	}
-	info_short("\n\n\"rsync  --help\":\n");
+	info_short("lrsync possible options:");
+	info_short("	--help");
+	info_short("	--version");
+	info_short("	--command");
+	info_short("");
+	info_short("");
+	info_short("\"rsync  --help\":");
+	info_short("");
 	exec_rsync (ctx_p, "--help");
-	info_short("\n\n\"clsync  --help\":\n");
+	info_short("");
+	info_short("");
+	info_short("\"clsync  --help\":");
+	info_short("");
 	exec_clsync(ctx_p, "--help");
 
 	exit(0);
 }
 
 #define version() _version(ctx_p)
-void _version(ctx_t *ctx_p)
+void _version(ctx_t *const ctx_p)
 {
 	info_short(PROGRAM" v%i.%i\n\t"AUTHOR"", VERSION_MAJ, VERSION_MIN);
 	info_short("\n\n\"clsync --version\":\n");
@@ -77,60 +69,176 @@ void _version(ctx_t *ctx_p)
 	exit(0);
 }
 
-int parse_parameter(ctx_t *ctx_p, uint16_t param_id, char *arg)
-{
-	switch (param_id) {
-		case FL_HELP:
-			syntax();
-			break;
-		case FL_SHOW_VERSION:
-			version();
-			break;
+
+void push_rsyncarg(ctx_t *const ctx_p, char *const arg, int isoption) {
+	static int nonoption_count = 0;
+
+	if (ctx_p->rsync_argv_count >= MAXARGUMENTS) {
+		errno = E2BIG;
+		critical("Too many arguments");
 	}
-	return 0;
-}
 
-int parse_arguments(int argc, char *argv[], ctx_t *ctx_p)
-{
-	int c;
-	int option_index = 0;
-
-	// Generating "optstring" (man 3 getopt_long) with using information from struct array "long_options"
-	char *optstring     = alloca((('z'-'a'+1)*3 + '9'-'0'+1)*3 + 1);
-	char *optstring_ptr = optstring;
-
-	const struct option *lo_ptr = long_options;
-	while(lo_ptr->name != NULL) {
-		if(!(lo_ptr->val & (FLM_LONGOPTONLY))) {
-			*(optstring_ptr++) = lo_ptr->val & 0xff;
-
-			if(lo_ptr->has_arg == required_argument)
-				*(optstring_ptr++) = ':';
-
-			if(lo_ptr->has_arg == optional_argument) {
-				*(optstring_ptr++) = ':';
-				*(optstring_ptr++) = ':';
-			}
+	if (!isoption) {
+		switch (nonoption_count) {
+			case 0:
+				ctx_p->dir_from = arg;
+				break;
+			case 1:
+				ctx_p->dir_to   = arg;
+				break;
+			default:
+				errno = EINVAL;
+				critical("You cannot use multiple source via lrsync");
 		}
-		lo_ptr++;
-	}
-	*optstring_ptr = 0;
-
-	// Parsing arguments
-	while(1) {
-		c = getopt_long(argc, argv, optstring, long_options, &option_index);
-	
-		if (c == -1) break;
-		int ret = parse_parameter(ctx_p, c, optarg);
-		if (ret) return ret;
+		nonoption_count++;
 	}
 
-	printf("%i\n", option_index);
+	ctx_p->rsync_argv[ ctx_p->rsync_argv_count++ ] = arg;
+
+	return;
+}
+
+void push_clsyncarg(ctx_t *const ctx_p, char *const arg) {
+	if (ctx_p->clsync_argv_count >= MAXARGUMENTS) {
+		errno = E2BIG;
+		critical("Too many arguments");
+	}
+
+	ctx_p->clsync_argv[ ctx_p->clsync_argv_count++ ] = arg;
+
+	switch (arg[1]) {
+		case '-':
+			if (!strcmp(arg, "--verbose")) {
+				push_rsyncarg(ctx_p, arg, 1);
+				return;
+			}
+			return;
+		case 'v':
+			push_rsyncarg(ctx_p, arg, 1);
+			return;
+	}
+
+	return;
+}
+
+int parse_arguments(const int argc, char *const argv[], ctx_t *const ctx_p)
+{
+	char **argv_p;
+	int    reqarg     = 0;
+	int    nonoptions = 0;
+
+	argv_p = (char **)&argv[1];
+
+	while (*argv_p != NULL) {
+		char   *arg     = *(argv_p++);
+		size_t  arg_len = strlen(arg);
+
+		// If "--" was been already met
+		if (nonoptions) {
+			push_rsyncarg(ctx_p, arg, 0);
+			continue;
+		}
+
+		// This argument is just an argument to previously pushed clsync option
+		if (reqarg) {
+			push_clsyncarg(ctx_p, arg);
+			continue;
+		}
+
+		// Empty argument. It's not for clsync :)
+		if (!arg_len) {
+			push_rsyncarg(ctx_p, arg, 0);
+			continue;
+		}
+
+		// Not an option. Not for clsync.
+		if (arg[0] != '-') {
+			push_rsyncarg(ctx_p, arg, 0);
+			continue;
+		}
+
+		// Short option
+		if (arg[1] != '-') {
+#ifdef CLSYNC_SHORTOPTS
+			unsigned char shortopt = (unsigned char)arg[1];
+
+			// Not a clsync option.
+			if (!ctx_p->clsync_shortopt[shortopt]) {
+				push_rsyncarg(ctx_p, arg, 1);
+				continue;
+			}
+
+			// clsync option
+			push_clsyncarg(ctx_p, arg);
+
+			// Have we already passed the argument if it's required? (like "-d99")
+			if ((ctx_p->clsync_shortopt[shortopt] == 2) && (arg_len == 2))
+				reqarg = 1;
+#else
+			push_rsyncarg(ctx_p, arg, 1);
+#endif
+			continue;
+		}
+
+		// Is an "--"
+		if (arg_len == 2) {
+			nonoptions = 1;
+			continue;
+		}
+
+		// Long option
+		{
+			char *longopt = strdup(&arg[2]), *ptr, **lo_ptr, found;
+			int lo_i;
+
+			// If option with an argument already then temporary removing the argument
+			ptr = strchr(longopt, '=');
+			if (ptr != NULL)
+				*ptr = 0;
+
+			if (!strcmp(longopt, "help"))
+				syntax();
+			if (!strcmp(longopt, "version"))
+				version();
+			if (!strcmp(longopt, "command")) {
+				ctx_p->flags[FL_COMMANDONLY]=1;
+				continue;
+			}
+
+			// Is it clsync option?
+			found = 0;
+			lo_i  = 0;
+			lo_ptr = ctx_p->clsync_longopt;
+			while (lo_ptr[lo_i] != NULL) {
+				char *lo = lo_ptr[lo_i];
+				if (!strcmp(lo, longopt)) {
+					found = 1;
+					break;
+				}
+				lo_i++;
+			}
+			free(longopt);
+
+			// If not => rsync
+			if (!found) {
+				push_rsyncarg(ctx_p, arg, 1);
+				continue;
+			}
+
+			// It's a clsync option. Pushing.
+			push_clsyncarg(ctx_p, arg);
+
+			// Have we already passed the argument if it's required? (like "--debug=99")
+			if (ctx_p->clsync_longopt_reqarg[lo_i] && (ptr == NULL))
+				reqarg = 1;
+			continue;
+		}
+	}
 
 	return 0;
 }
 
-int parse_clsyncarguments(ctx_t *ctx_p)
+int parse_clsyncarguments(ctx_t *const ctx_p)
 {
 	FILE       *clsync_stderr;
 	char       *line = NULL;
@@ -138,6 +246,8 @@ int parse_clsyncarguments(ctx_t *ctx_p)
 	ssize_t     read;
 	const char *clsync_path = path_clsync();
 	char       *argv[] = { "clsync", "--help", NULL };
+
+	int lcount = 0;
 
 	pid_t clsync_pid = my_popen(clsync_path, argv, NULL, NULL, &clsync_stderr);
 
@@ -174,7 +284,17 @@ int parse_clsyncarguments(ctx_t *ctx_p)
 
 			reqarg = (*ptr != '\n');
 
-			printf(">>> \"%s\" \"%c\" %i\n", longopt, shorthand, reqarg);
+			if (lcount > CLSYNC_MAXLONGOPTS)
+				critical("Too many clsync long options");
+
+			ctx_p->clsync_longopt[lcount]        = strdup(longopt);
+			ctx_p->clsync_longopt_reqarg[lcount] = reqarg;
+			lcount++;
+
+			if (shorthand)
+				ctx_p->clsync_shortopt[(unsigned char)shorthand] = reqarg+1;
+
+//			printf(">>> \"%s\" \"%c\" %i (%u)\n", longopt, shorthand, reqarg, lcount);
 		}
 	}
 
@@ -191,16 +311,16 @@ int parse_clsyncarguments(ctx_t *ctx_p)
 	if (status == -1)
 		error("Got error from pclose()");
 
-	return status;
+	return 0;
 }
 
 int main(int argc, char *argv[])
 {
-	ctx_t ctx;
+	ctx_t ctx = {{0}};
 	int ret;
 
 	ret = parse_clsyncarguments(&ctx);
-	if (!ret)
+	if (ret)
 		error("Cannot parse supported clsync arguments");
 
 	if (!ret) {
@@ -210,7 +330,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (!ret)
-		ret = lrsync(&ctx, argc, argv);
+		ret = lrsync(&ctx);
 
 	return ret;
 }

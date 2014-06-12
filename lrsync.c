@@ -25,8 +25,6 @@
 #include <sys/types.h>	// waitpid()
 #include <sys/wait.h>	// waitpid()
 
-
-#include "configuration.h"
 #include "common.h"
 #include "error.h"
 #include "malloc.h"
@@ -105,7 +103,7 @@ static inline int exec_clsync_argv(const char **argv)
 	return forkexecwaitvp(path_clsync(), argv);
 }
 
-int exec_rsync(ctx_t *ctx_p, ...)
+int exec_rsync(ctx_t *const ctx_p, ...)
 {
 	char **argv = (char **)xcalloc(sizeof(char *), MAXARGUMENTS);
 	memset(argv, 0, sizeof(char *)*MAXARGUMENTS);
@@ -116,7 +114,7 @@ int exec_rsync(ctx_t *ctx_p, ...)
 	return rc;
 }
 
-int exec_clsync(ctx_t *ctx_p, ...)
+int exec_clsync(ctx_t *const ctx_p, ...)
 {
 	char **argv = (char **)xcalloc(sizeof(char *), MAXARGUMENTS);
 	memset(argv, 0, sizeof(char *)*MAXARGUMENTS);
@@ -127,10 +125,62 @@ int exec_clsync(ctx_t *ctx_p, ...)
 	return rc;
 }
 
-int lrsync(ctx_t *ctx_p, int argc, char *argv[])
-{
+int print_cmd(const char *const *const argv) {
+	const char *const *argv_p;
 
-	exec_rsync_argv((const char **)argv);
+	argv_p = argv;
+	if (*argv_p != NULL)
+		printf("%s ", *(argv_p++));
 
+	while (*argv_p != NULL)
+		printf("\\\n  %s ", *(argv_p++));
+
+	printf("\n\n");
 	return 0;
+}
+
+static inline void push_arg(const char **argv, int *count_p, const char *arg) {
+	if ((*count_p) >= MAXARGUMENTS) {
+		errno = E2BIG;
+		critical("Too many arguments");
+	}
+	argv[(*count_p)++] = arg;
+	return;
+}
+
+int lrsync(ctx_t *const ctx_p)
+{
+	int          count = 0;
+	const char  *argv[MAXARGUMENTS];
+	char       **argv_p;
+
+	if (ctx_p->dir_from == NULL)
+		errno=EINVAL, critical("Source is not entered");
+	if (ctx_p->dir_to   == NULL)
+		errno=EINVAL, critical("Destination is not entered");
+
+	push_arg(argv, &count, path_clsync());
+	push_arg(argv, &count, "-Klrsync");
+	push_arg(argv, &count, "-Mrsyncdirect");
+	push_arg(argv, &count, "-S");
+	push_arg(argv, &count, path_rsync());
+	push_arg(argv, &count, "-W");
+	push_arg(argv, &count, ctx_p->dir_from);
+	push_arg(argv, &count, "-D");
+	push_arg(argv, &count, ctx_p->dir_to);
+
+	argv_p = ctx_p->clsync_argv;
+	while (*argv_p != NULL)
+		push_arg(argv, &count, *(argv_p++));
+
+	push_arg(argv, &count, "--");
+
+	argv_p = ctx_p->rsync_argv;
+	while (*argv_p != NULL)
+		push_arg(argv, &count, *(argv_p++));
+
+	if (ctx_p->flags[FL_COMMANDONLY])
+		return print_cmd(argv);
+
+	return exec_clsync_argv(argv);
 }
