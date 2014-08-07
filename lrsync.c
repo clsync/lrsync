@@ -17,6 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <stdio.h>	// printf()
 #include <unistd.h>	// fork()
 #include <stdlib.h>	// getenv()
 #include <stdarg.h>	// va_start()
@@ -191,7 +192,7 @@ int lrsync(ctx_t *const ctx_p)
 	while (*argv_p != NULL)
 		push_arg(argv, &count, *(argv_p++));
 
-	if (ctx_p->flags[FL_COMMANDONLY])
+	if (ctx_p->flags[FL_CLSYNCCOMMANDONLY])
 		return print_cmd(argv);
 
 	return exec_clsync_argv(argv);
